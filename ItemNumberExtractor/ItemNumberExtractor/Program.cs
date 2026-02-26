@@ -35,7 +35,7 @@ static class Program
 
             var outputPath = Path.Combine(
                 dir,
-                Path.GetFileNameWithoutExtension(inputPath) + "_item_numbers.txt"
+                Path.GetFileNameWithoutExtension(inputPath) + "_item_numbers_single_line.txt"
             );
 
             var delimiter = DetectDelimiter(inputPath);
@@ -43,6 +43,9 @@ static class Program
             int written = 0;
             bool firstRow = true;
             var preview = new List<string>(10);
+
+            // Collect values first, then write one-line
+            var items = new List<string>(capacity: 4096);
 
             using var parser = new TextFieldParser(inputPath, Encoding.UTF8)
             {
@@ -52,53 +55,46 @@ static class Program
             };
             parser.SetDelimiters(delimiter);
 
-            // Write LF-only newlines (avoids any CR-related weirdness in some apps)
-            using var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.Read);
-            using var writer = new StreamWriter(fs, new UTF8Encoding(false), bufferSize: 4096)
-            {
-                NewLine = "\n"
-            };
-
             while (!parser.EndOfData)
             {
                 var fields = parser.ReadFields();
                 if (fields == null || fields.Length == 0) continue;
 
-                // ONLY first column
-                var raw = fields[0] ?? "";
-
-                // Clean aggressively
-                raw = CleanToDigitsOrScientific(raw);
-
+                var raw = Clean(fields[0]);
                 if (string.IsNullOrWhiteSpace(raw)) continue;
 
                 if (firstRow)
                 {
                     firstRow = false;
-                    // skip header only if it isn't numeric/scientific
                     if (!(DigitsOnly.IsMatch(raw) || Scientific.IsMatch(raw)))
-                        continue;
+                        continue; // skip header
                 }
 
                 if (Scientific.IsMatch(raw))
                     raw = ExpandScientific(raw);
 
-                // Final safety: remove *any* remaining whitespace characters
+                // Remove ALL whitespace chars just in case
                 raw = RemoveAllWhitespace(raw);
 
-                // If you want to be ultra-strict: only write digits
-                // (keeps leading zeros intact)
                 if (!DigitsOnly.IsMatch(raw))
                     continue;
 
-                writer.WriteLine(raw);
+                items.Add(raw);
                 written++;
 
                 if (preview.Count < 10) preview.Add(raw);
             }
 
-            writer.Flush();
-            fs.Flush(true);
+            // Write ONE LINE, comma-separated (no newlines)
+            var oneLine = string.Join(",", items);
+
+            using (var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.Read))
+            using (var writer = new StreamWriter(fs, new UTF8Encoding(false)))
+            {
+                writer.Write(oneLine);
+                writer.Flush();
+                fs.Flush(true);
+            }
 
             Console.WriteLine($"Wrote {written} item numbers to:");
             Console.WriteLine(outputPath);
@@ -135,8 +131,8 @@ static class Program
             if (string.IsNullOrWhiteSpace(line)) continue;
 
             int comma = line.Count(c => c == ',');
-            int semi = line.Count(c => c == ';');
-            int tab = line.Count(c => c == '\t');
+            int semi  = line.Count(c => c == ';');
+            int tab   = line.Count(c => c == '\t');
 
             if (tab >= semi && tab >= comma && tab > 0) return "\t";
             if (semi >= comma && semi > 0) return ";";
@@ -145,34 +141,20 @@ static class Program
         return ",";
     }
 
-    static string CleanToDigitsOrScientific(string s)
-    {
-        if (s == null) return "";
-
-        // Remove common invisible chars and trim
-        var t = s
-            .Replace("\u00A0", "") // NBSP
-            .Replace("\u2007", "") // figure space
-            .Replace("\u202F", "") // narrow no-break space
+    static string Clean(string s)
+        => (s ?? "")
+            .Replace("\u00A0", "")
             .Trim()
             .Trim('"')
             .Trim('\'')
             .Trim();
-
-        // Do not remove internal characters for scientific notation
-        // (we'll handle it later). Just return trimmed.
-        return t;
-    }
 
     static string RemoveAllWhitespace(string s)
     {
         if (string.IsNullOrEmpty(s)) return s;
         var sb = new StringBuilder(s.Length);
         foreach (var ch in s)
-        {
-            if (!char.IsWhiteSpace(ch))
-                sb.Append(ch);
-        }
+            if (!char.IsWhiteSpace(ch)) sb.Append(ch);
         return sb.ToString();
     }
 
