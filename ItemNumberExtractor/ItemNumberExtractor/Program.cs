@@ -14,8 +14,7 @@ static class Program
         {
             if (args.Length == 0)
             {
-                Console.WriteLine("Drag a CSV onto this EXE, or run:");
-                Console.WriteLine("  ItemNumberExtractor.exe \"C:\\path\\file.csv\"");
+                Console.WriteLine("Close this dialogue and drag an inventory .CSV onto the EXE");
                 Console.WriteLine("Press any key to exit...");
                 Console.ReadKey();
                 return 1;
@@ -30,13 +29,13 @@ static class Program
                 return 2;
             }
 
-            var dir = Path.GetDirectoryName(inputPath);
-            if (string.IsNullOrWhiteSpace(dir)) dir = Environment.CurrentDirectory;
+            var exeDir = AppContext.BaseDirectory;
 
             var outputPath = Path.Combine(
-                dir,
-                Path.GetFileNameWithoutExtension(inputPath) + "_item_numbers_single_line.txt"
+            exeDir,
+            Path.GetFileNameWithoutExtension(inputPath) + "_item_numbers_single_line.txt"
             );
+     
 
             var delimiter = DetectDelimiter(inputPath);
 
@@ -96,21 +95,8 @@ static class Program
                 fs.Flush(true);
             }
 
-            Console.WriteLine($"Wrote {written} item numbers to:");
-            Console.WriteLine(outputPath);
-
-            if (written > 0)
-            {
-                Console.WriteLine();
-                Console.WriteLine("Preview:");
-                foreach (var p in preview) Console.WriteLine(p);
-            }
-
-            Console.WriteLine();
-            Console.WriteLine("Press any key to exit...");
-            Console.ReadKey();
             return 0;
-        }
+
         catch (Exception ex)
         {
             Console.WriteLine("ERROR:");
