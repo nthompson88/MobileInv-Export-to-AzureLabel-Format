@@ -97,6 +97,8 @@ static class Program
 
             return 0;
 
+            }
+
         catch (Exception ex)
         {
             Console.WriteLine("ERROR:");
