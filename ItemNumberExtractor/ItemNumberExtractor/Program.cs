@@ -29,12 +29,19 @@ static class Program
                 return 2;
             }
 
-            var exeDir = AppContext.BaseDirectory;
+                var exeDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
 
-            var outputPath = Path.Combine(
-            exeDir,
-            Path.GetFileNameWithoutExtension(inputPath) + "_item_numbers_single_line.txt"
-            );
+                var publicDesktop = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory).TrimEnd(Path.DirectorySeparatorChar);
+                var userDesktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+
+                var outputDir = string.Equals(exeDir, publicDesktop, StringComparison.OrdinalIgnoreCase)
+                ? userDesktop
+                : exeDir;
+
+                var outputPath = Path.Combine(
+                outputDir,
+                Path.GetFileNameWithoutExtension(inputPath) + "_AzureLabelFormat.txt"
+                );
      
 
             var delimiter = DetectDelimiter(inputPath);
